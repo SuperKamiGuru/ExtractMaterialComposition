@@ -1,0 +1,6 @@
+.gitignore~
+bin/
+ExtractMaterialComposition.depend
+ExtractMaterialComposition.cbp
+ExtractMaterialComposition.layout
+obj/
