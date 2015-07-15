@@ -133,6 +133,8 @@ void GetDataStream( string geoFileName, std::stringstream& ss)
 
 void FormatData(std::stringstream& stream, std::stringstream& stream2, string geoFileSourceName, bool weightPercent, string composition)
 {
+    stringstream numConv;
+
     std::vector<string> matNameList;
     matNameList.reserve(20);
     std::vector<string> matTempList;
@@ -161,21 +163,31 @@ void FormatData(std::stringstream& stream, std::stringstream& stream2, string ge
     stream.str("");
     stream.clear();
 
-    stream << "This file lists the " << composition << " and the mass of all the isotopes used to create each material used in " << geoFileSourceName << endl;
+    stream << "This file lists the " << composition << " and the mass of all the isotopes used to create each material used in " << geoFileSourceName << "\n" << endl;
 
     isoStartIndex.push_back(isoNameList.size());
 
     for(int i=0; i<int(matNameList.size()); i++)
     {
         stream.fill('-');
-        stream << std::setw(84) << std::left << matNameList[i] << '\n' << endl;
-        stream << "Density: " << matDensList[i] << '\n';
-        stream << "Temperature: " << matTempList[i] << '\n' << endl;
+        stream << std::setw(84) << std::left << "Material: "+matNameList[i] << '\n' << endl;
+        stream << "Density: " << matDensList[i] << '\n' << "Number of Isotopes: " << isoStartIndex[i+1]-isoStartIndex[i] << '\n' << endl;
+
         stream.fill(' ');
+        stream << std::setw(20) << std::left << "Isotope Name:" << std::setw(20) << std::left << "Amount:" << std::setw(20) << std::left << "Mass:"
+                  << std::setw(20) << std::left << "Temperature:" << '\n' << endl;
 
         for(int j=isoStartIndex[i]; j<isoStartIndex[i+1]; j++)
         {
-            stream << std::setw(20) << std::left << isoNameList[j] << std::setw(20) << std::left << isoAmountVec[j] << std::setw(20) << std::left << isoMassVec[j]+"amu" << '\n';
+            numConv.str("");
+            numConv.clear();
+            numConv << isoAmountVec[j];
+            stream << std::setw(20) << std::left << isoNameList[j] << std::setw(20) << std::left << numConv.str()+composition;
+
+            numConv.str("");
+            numConv.clear();
+            numConv << isoMassVec[j];
+            stream << std::setw(20) << std::left << numConv.str()+"amu" << matTempList[i] << '\n';
         }
 
         stream << "\n";
@@ -809,7 +821,7 @@ bool FindMatTempDens(std::stringstream& stream, string matName, string &matTemp,
             found=findDouble(original, matDens, temperature);
             temp << temperature;
             temp >> matDens;
-            matDens = matDens+"g/cm2";
+            matDens = matDens+"g/cm3";
             temp.str("");
             temp.clear();
         }
