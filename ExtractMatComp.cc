@@ -163,7 +163,7 @@ void FormatData(std::stringstream& stream, std::stringstream& stream2, string ge
     stream.str("");
     stream.clear();
 
-    stream << "This file lists the " << composition << " and the mass of all the isotopes used to create each material used in " << geoFileSourceName << "\n" << endl;
+    stream << "This file lists the " << composition << " and the mass in amu, of all the isotopes used to create each material used in " << geoFileSourceName << endl;
 
     isoStartIndex.push_back(isoNameList.size());
 
@@ -847,7 +847,7 @@ bool FindMatTempDens(std::stringstream& stream, string matName, string &matTemp,
     }
     if(standard)
     {
-        matTemp="273.15 kelvin";
+        matTemp="273.15kelvin";
     }
     else
     {
