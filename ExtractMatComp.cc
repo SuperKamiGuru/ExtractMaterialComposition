@@ -41,7 +41,7 @@ double GetFracComp(stringstream &stream, stringstream &original);
 bool findDouble(std::stringstream *stream, string variable, double &mass);
 void GetAndAddIsotope(std::stringstream& stream, std::vector<string> &isoNameList);
 void GetAndAddIsotope(std::stringstream& stream, std::vector<string> &isoNameList, std::vector<double> &isoMassVec);
-
+void GetAndAddNaturalIsoAbun(std::stringstream& stream, double &elemMass, std::vector<int> &elemNumIsoVec, std::vector<double> &isoAbunVec, std::vector<string> &isoNameList, std::vector<double> &isoMassVec);
 string CreateMacroName(string geoFileName, string outDirName);
 void SetDataStream( string, std::stringstream&);
 
@@ -69,7 +69,7 @@ int main(int argc, char **argv)
         if(composition=="abundance"||composition=="Abundance"||composition=="iso%"||composition=="Iso%"||composition=="isotope%"||composition=="Isotope%"||composition=="isotopic%"||composition=="Isotopic%")
         {
             weightPercent=false;
-            composition="isotopic%";
+            composition="abun%";
         }
         else
         {
@@ -711,10 +711,8 @@ bool FindConstructor(std::stringstream& stream, string name, std::vector<string>
                 matDensList.push_back(matDens);
                 stream.seekg(pos1, std::ios::beg);
                 elemWPerVec.push_back(wtPercent);
-                isoAbunVec.push_back(1.0);
-                elemNumIsoVec.push_back(1);
-                GetAndAddIsotope(stream, isoNameList, isoMassVec);
-                elemMass=isoMassVec.back();
+
+                GetAndAddNaturalIsoAbun(stream, elemMass, elemNumIsoVec, isoAbunVec, isoNameList, isoMassVec);
                 numElem++;
                 return false;
             }
@@ -734,10 +732,7 @@ bool FindConstructor(std::stringstream& stream, string name, std::vector<string>
             if(count==3)
             {
                 stream.seekg(pos1, std::ios::beg);
-                isoAbunVec.push_back(1.0);
-                elemNumIsoVec.push_back(1);
-                GetAndAddIsotope(stream, isoNameList, isoMassVec);
-                elemMass=isoMassVec.back();
+                GetAndAddNaturalIsoAbun(stream, elemMass, elemNumIsoVec, isoAbunVec, isoNameList, isoMassVec);
                 return false;
             }
             else
@@ -929,8 +924,7 @@ int GetElementList(std::stringstream& stream, std::stringstream& original, std::
             {
                 ExtractString(stream, ',', 0);
                 stream.get();
-                GetAndAddIsotope(stream, isoNameList, isoMassVec);
-                elemMass=isoMassVec.back();
+                GetAndAddNaturalIsoAbun(stream, elemMass, elemNumIsoVec, isoAbunVec, isoNameList, isoMassVec);
                 elemMassVec.push_back(elemMass);
                 ExtractString(stream, ')', 0);
                 ExtractString(stream, ',', 0);
@@ -955,8 +949,6 @@ int GetElementList(std::stringstream& stream, std::stringstream& original, std::
                 numConv.seekg(0, std::ostream::beg);
 
                 elemWPerVec.push_back(wtPercent*tempNum);
-                isoAbunVec.push_back(1.0);
-                elemNumIsoVec.push_back(1);
                 numElem++;
                 count++;
             }
@@ -1003,14 +995,16 @@ int GetElementList(std::stringstream& stream, std::stringstream& original, std::
             checkCon.str(name);
             if(MovePastWord(checkCon, "new G4Material"))
             {
-                GetAndAddIsotope(stream, isoNameList, isoMassVec);
+                GetAndAddNaturalIsoAbun(stream, elemMass, elemNumIsoVec, isoAbunVec, isoNameList, isoMassVec);
+
+                //add this in since it seems like it should be needed but I may be wrong
+                elemMassVec.push_back(elemMass);
+
                 ExtractString(stream, ')', 0);
                 ExtractString(stream, ',', 0);
                 stream.get();
                 tempNum=GetFracComp(stream,original);
                 elemWPerVec.push_back(wtPercent*tempNum);
-                isoAbunVec.push_back(1.0);
-                elemNumIsoVec.push_back(1);
                 numElem++;
                 count++;
             }
@@ -1111,22 +1105,20 @@ void FindIsotopeList(std::stringstream& stream, std::stringstream *original, str
                 }
             }
         }
-    }
+        double sum=0;
+        elemNumIsoVec.push_back(numIso);
+        for(int i=0; i<elemNumIsoVec.back(); i++)
+        {
+            elemMass+=(isoMassVec[isoIndex+i])*(isoAbunVec[isoIndex2+i]);
+            sum+=isoAbunVec[isoIndex2+i];
+        }
 
-    elemNumIsoVec.push_back(numIso);
-    double sum=0;
+        for(int i=0; i<elemNumIsoVec.back(); i++)
+        {
+            isoAbunVec[isoIndex2+i]=isoAbunVec[isoIndex2+i]/sum;
+        }
 
-    for(int i=0; i<elemNumIsoVec.back(); i++)
-    {
-        elemMass+=(isoMassVec[isoIndex+i])*(isoAbunVec[isoIndex2+i]);
-        sum+=isoAbunVec[isoIndex2+i];
-    }
-
-    elemMass/=sum;
-
-    for(int i=0; i<elemNumIsoVec.back(); i++)
-    {
-        isoAbunVec[isoIndex2+i]=isoAbunVec[isoIndex2+i]/sum;
+        elemMass/=sum;
     }
 
     stream.seekg(pos2, std::ios::beg);
@@ -1389,6 +1381,45 @@ void GetAndAddIsotope(std::stringstream& stream, std::vector<string> &isoNameLis
 
     isoName.str("");
     isoName.clear();
+}
+
+void GetAndAddNaturalIsoAbun(std::stringstream& stream, double &elemMass, std::vector<int> &elemNumIsoVec, std::vector<double> &isoAbunVec, std::vector<string> &isoNameList, std::vector<double> &isoMassVec)
+{
+    std::stringstream numConv;
+    IsotopeMass *isotopeMass;
+    ElementNames* elementNames;
+    int Z, A;
+    double mass;
+
+    numConv << ExtractString(stream, ',', int(numbers));
+    stream.get();
+    numConv >> Z;
+    numConv.clear();
+    numConv.str("");
+
+    numConv << (ExtractString(stream, ',', int(numbers))).c_str();
+    stream.get();
+    numConv >> A;
+    mass = isotopeMass->GetIsotopeMass(Z,A);
+
+    double *natAbun=0;
+    int vecSize=0, numIso=0, baseA=0;
+    isotopeMass->GetNaturalAbundanceVec(Z, natAbun, vecSize, baseA);
+    for(int i=0; i<vecSize; i++)
+    {
+        if(natAbun[i]>0)
+        {
+            numConv.clear();
+            numConv.str("");
+            numConv << Z << "_" << baseA+i << "_" << elementNames->GetName(Z);
+            isoAbunVec.push_back(natAbun[i]);
+            isoNameList.push_back(numConv.str());
+            isoMassVec.push_back(isotopeMass->GetIsotopeMass(Z,baseA+i));
+            numIso++;
+        }
+    }
+    elemNumIsoVec.push_back(numIso);
+    elemMass=mass;
 }
 
 string CreateMacroName(string geoFileName, string outDirName)

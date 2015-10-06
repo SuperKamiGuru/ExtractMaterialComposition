@@ -49,6 +49,12 @@ class IsotopeMass
             }
 
         }
+        static void GetNaturalAbundanceVec(int Z, double* &natAbun, int &vecSize, int &baseA)
+        {
+            natAbun=isoNatAbun[Z];
+            vecSize=elemNumIso[Z];
+            baseA=elemBaseA[Z];
+        }
         static double **isotopeMass;
         static double **isoNatAbun;
         static int *elemNumIso;
